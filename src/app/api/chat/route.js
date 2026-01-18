@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 import {
   rechercherArret,
   rechercherLigne,
@@ -8,11 +8,11 @@ import {
   getItineraire
 } from '@/lib/recherche'
 
-// Créer le client Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+// Créer le client OpenAI
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 // ============================================
-// SYSTEM PROMPT - Comment Gemini doit répondre
+// SYSTEM PROMPT - Comment ChatGPT doit répondre
 // ============================================
 const SYSTEM_PROMPT = `Tu es SmartMove, un assistant sympa et expert des transports en commun de Toulouse et sa région (Haute-Garonne).
 
@@ -95,100 +95,114 @@ Quand tu donnes un trajet (résultat de getItineraire), reformule naturellement 
 RAPPEL FINAL : Utilise TOUJOURS les fonctions. Ne réponds JAMAIS avec des infos que tu n'as pas vérifiées via une fonction !`
 
 // ============================================
-// DÉFINITION DES FONCTIONS (Tools) pour Gemini
+// DÉFINITION DES FONCTIONS (Tools) pour OpenAI
 // ============================================
 const tools = [
   {
-    functionDeclarations: [
-      {
-        name: "rechercherArret",
-        description: "Recherche un arrêt de transport en commun par son nom. Utilise cette fonction quand l'utilisateur demande où se trouve un arrêt ou des infos sur un arrêt.",
-        parameters: {
-          type: "object",
-          properties: {
-            nom: {
-              type: "string",
-              description: "Le nom de l'arrêt à rechercher (ex: 'Capitole', 'Jean Jaurès')"
-            }
-          },
-          required: ["nom"]
-        }
-      },
-      {
-        name: "rechercherLigne",
-        description: "Recherche une ligne de transport (métro, bus, tram) par son nom ou numéro. Utilise cette fonction pour avoir des infos sur une ligne.",
-        parameters: {
-          type: "object",
-          properties: {
-            ligne: {
-              type: "string",
-              description: "Le nom ou numéro de la ligne (ex: 'A', 'B', '14', 'T1', 'L6')"
-            }
-          },
-          required: ["ligne"]
-        }
-      },
-      {
-        name: "getArretsLigne",
-        description: "Obtient la liste de tous les arrêts d'une ligne dans l'ordre du trajet. UTILISE CETTE FONCTION pour vérifier si une ligne passe par un arrêt.",
-        parameters: {
-          type: "object",
-          properties: {
-            idLigne: {
-              type: "string",
-              description: "L'identifiant de la ligne (ex: 'A', '14', 'L6')"
-            }
-          },
-          required: ["idLigne"]
-        }
-      },
-      {
-        name: "getLignesArret",
-        description: "Trouve toutes les lignes qui passent par un arrêt donné.",
-        parameters: {
-          type: "object",
-          properties: {
-            nomArret: {
-              type: "string",
-              description: "Le nom de l'arrêt (ex: 'Jean Jaurès')"
-            }
-          },
-          required: ["nomArret"]
-        }
-      },
-      {
-        name: "getArretsCommune",
-        description: "Liste tous les arrêts de transport dans une commune donnée.",
-        parameters: {
-          type: "object",
-          properties: {
-            commune: {
-              type: "string",
-              description: "Le nom de la commune (ex: 'Castanet-Tolosan', 'Ramonville', 'Pechabou')"
-            }
-          },
-          required: ["commune"]
-        }
-      },
-      {
-        name: "getItineraire",
-        description: "Calcule un itinéraire en transport en commun entre deux lieux. Utilise cette fonction quand l'utilisateur veut aller d'un point A à un point B.",
-        parameters: {
-          type: "object",
-          properties: {
-            depart: {
-              type: "string",
-              description: "L'adresse ou lieu de départ. Si c'est des coordonnées GPS, utilise le format 'latitude, longitude'"
-            },
-            arrivee: {
-              type: "string",
-              description: "L'adresse ou lieu d'arrivée (ex: 'Capitole', 'Place du Capitole Toulouse')"
-            }
-          },
-          required: ["depart", "arrivee"]
-        }
+    type: "function",
+    function: {
+      name: "rechercherArret",
+      description: "Recherche un arrêt de transport en commun par son nom. Utilise cette fonction quand l'utilisateur demande où se trouve un arrêt ou des infos sur un arrêt.",
+      parameters: {
+        type: "object",
+        properties: {
+          nom: {
+            type: "string",
+            description: "Le nom de l'arrêt à rechercher (ex: 'Capitole', 'Jean Jaurès')"
+          }
+        },
+        required: ["nom"]
       }
-    ]
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "rechercherLigne",
+      description: "Recherche une ligne de transport (métro, bus, tram) par son nom ou numéro. Utilise cette fonction pour avoir des infos sur une ligne.",
+      parameters: {
+        type: "object",
+        properties: {
+          ligne: {
+            type: "string",
+            description: "Le nom ou numéro de la ligne (ex: 'A', 'B', '14', 'T1', 'L6')"
+          }
+        },
+        required: ["ligne"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "getArretsLigne",
+      description: "Obtient la liste de tous les arrêts d'une ligne dans l'ordre du trajet. UTILISE CETTE FONCTION pour vérifier si une ligne passe par un arrêt.",
+      parameters: {
+        type: "object",
+        properties: {
+          idLigne: {
+            type: "string",
+            description: "L'identifiant de la ligne (ex: 'A', '14', 'L6')"
+          }
+        },
+        required: ["idLigne"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "getLignesArret",
+      description: "Trouve toutes les lignes qui passent par un arrêt donné.",
+      parameters: {
+        type: "object",
+        properties: {
+          nomArret: {
+            type: "string",
+            description: "Le nom de l'arrêt (ex: 'Jean Jaurès')"
+          }
+        },
+        required: ["nomArret"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "getArretsCommune",
+      description: "Liste tous les arrêts de transport dans une commune donnée.",
+      parameters: {
+        type: "object",
+        properties: {
+          commune: {
+            type: "string",
+            description: "Le nom de la commune (ex: 'Castanet-Tolosan', 'Ramonville', 'Pechabou')"
+          }
+        },
+        required: ["commune"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "getItineraire",
+      description: "Calcule un itinéraire en transport en commun entre deux lieux. Utilise cette fonction quand l'utilisateur veut aller d'un point A à un point B.",
+      parameters: {
+        type: "object",
+        properties: {
+          depart: {
+            type: "string",
+            description: "L'adresse ou lieu de départ. Si c'est des coordonnées GPS, utilise le format 'latitude, longitude'"
+          },
+          arrivee: {
+            type: "string",
+            description: "L'adresse ou lieu d'arrivée (ex: 'Capitole', 'Place du Capitole Toulouse')"
+          }
+        },
+        required: ["depart", "arrivee"]
+      }
+    }
   }
 ]
 
@@ -234,76 +248,68 @@ export async function POST(request) {
     // Récupérer le message et l'historique de la conversation
     const { message, history = [] } = await request.json()
 
-    // Créer le modèle Gemini avec les tools
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash-exp",  // Modèle expérimental gratuit
-      tools: tools,
-      systemInstruction: SYSTEM_PROMPT
-    })
-
-    // Convertir l'historique au format Gemini
-    const geminiHistory = history.map(msg => ({
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content }]
-    }))
-
-    // Créer le chat avec l'historique
-    const chat = model.startChat({
-      history: geminiHistory,
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 2000
-      }
-    })
-
-    // Envoyer le message
-    let result = await chat.sendMessage(message)
-    let response = result.response
+    // Construire les messages pour OpenAI
+    const messages = [
+      { role: "system", content: SYSTEM_PROMPT },
+      ...history.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      })),
+      { role: "user", content: message }
+    ]
 
     // Boucle pour gérer les function calls
     let attempts = 0
     const maxAttempts = 5
 
     while (attempts < maxAttempts) {
-      const candidate = response.candidates?.[0]
-      const parts = candidate?.content?.parts || []
+      // Appeler OpenAI (GPT-4o-mini : rapide, pas cher, excellent pour le function calling)
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: messages,
+        tools: tools,
+        tool_choice: "auto",
+        temperature: 0.3,
+        max_tokens: 2000
+      })
 
-      // Chercher les function calls
-      const functionCalls = parts.filter(part => part.functionCall)
+      const choice = response.choices[0]
+      const assistantMessage = choice.message
 
-      if (functionCalls.length === 0) {
+      // Vérifier s'il y a des tool calls
+      if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
         // Pas de function call, on a la réponse finale
-        break
+        return Response.json({
+          success: true,
+          response: assistantMessage.content || "Désolé, je n'ai pas pu générer une réponse."
+        })
       }
 
       attempts++
 
+      // Ajouter le message de l'assistant avec les tool calls
+      messages.push(assistantMessage)
+
       // Exécuter toutes les functions demandées
-      const functionResponses = []
-      for (const part of functionCalls) {
-        const { name, args } = part.functionCall
-        const functionResult = await executeTool(name, args)
-        functionResponses.push({
-          functionResponse: {
-            name: name,
-            response: functionResult
-          }
+      for (const toolCall of assistantMessage.tool_calls) {
+        const functionName = toolCall.function.name
+        const functionArgs = JSON.parse(toolCall.function.arguments)
+
+        const functionResult = await executeTool(functionName, functionArgs)
+
+        // Ajouter le résultat de la fonction aux messages
+        messages.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: JSON.stringify(functionResult)
         })
       }
-
-      // Envoyer les résultats des functions à Gemini
-      result = await chat.sendMessage(functionResponses)
-      response = result.response
     }
 
-    // Extraire le texte de la réponse finale
-    const textParts = response.candidates?.[0]?.content?.parts?.filter(p => p.text) || []
-    const finalText = textParts.map(p => p.text).join('\n') || "Désolé, je n'ai pas pu générer une réponse."
-
-    // Retourner la réponse finale
+    // Si on a dépassé le nombre max de tentatives
     return Response.json({
       success: true,
-      response: finalText
+      response: "Désolé, j'ai eu du mal à traiter ta demande. Peux-tu reformuler ?"
     })
 
   } catch (error) {

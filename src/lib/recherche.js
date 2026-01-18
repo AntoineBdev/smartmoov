@@ -13,9 +13,9 @@ export async function rechercherArret(nom) {
   // ÉTAPE 1 : Recherche exacte (contient le mot)
   const { data: exactData, error: exactError } = await supabase
     .from('arrets_physiques')
-    .select('*')
+    .select('nom_arret, commune, adresse')
     .ilike('nom_arret', `%${nom}%`)
-    .limit(10)
+    .limit(5)
 
   if (exactError) {
     console.error('Erreur rechercherArret:', exactError)
@@ -62,12 +62,12 @@ export async function rechercherArret(nom) {
  */
 export async function rechercherLigne(ligne) {
   // On cherche dans la table "lignes"
-  // ilike = insensible à la casse (A = a)
+  // Recherche exacte insensible à la casse
   const { data, error } = await supabase
     .from('lignes')
-    .select('*')
-    .ilike('ligne', `%${ligne}%`)
-    .limit(10)
+    .select('ligne, nom_ligne, mode, couleur')
+    .ilike('ligne', ligne)
+    .limit(5)
 
   if (error) {
     console.error('Erreur rechercherLigne:', error)
@@ -90,17 +90,19 @@ export async function rechercherLigne(ligne) {
 export async function getArretsLigne(idLigne) {
   const { data, error } = await supabase
     .from('arrets_itineraire')        // table qui lie arrêts et lignes
-    .select('nom_arret, ordre')       // on veut le nom et l'ordre
-    .ilike('id_ligne', `%${idLigne}%`) // filtre par ligne
+    .select('nom_arret')              // on veut juste le nom
+    .ilike('ligne', idLigne)          // recherche exacte sur la ligne
     .order('ordre', { ascending: true }) // trié par ordre croissant
-    .limit(100)                       // une ligne peut avoir beaucoup d'arrêts
+    .limit(50)                        // limiter pour éviter trop de tokens
 
   if (error) {
     console.error('Erreur getArretsLigne:', error)
     return []
   }
 
-  return data
+  // Retourner juste les noms d'arrêts uniques (dédupliqués)
+  const arretsUniques = [...new Set(data.map(d => d.nom_arret))]
+  return arretsUniques
 }
 
 
