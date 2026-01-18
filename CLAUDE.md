@@ -1,151 +1,80 @@
-# SmartMove - Contexte Projet
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Commandes
+
+```bash
+npm run dev      # Serveur de développement
+npm run build    # Build production
+npm run lint     # ESLint
+```
 
 ## Stack technique
-- **Framework** : Next.js 14+ (App Router)
-- **Style** : Tailwind CSS
+
+- **Framework** : Next.js 16 (App Router)
+- **Style** : Tailwind CSS 4
 - **BDD** : Supabase (PostgreSQL)
-- **IA** : Groq (LLaMA)
+- **IA** : OpenAI GPT-4o-mini (avec function calling)
+- **Itinéraires** : Google Directions API
+- **Langue** : Français (parler français avec l'utilisateur)
 
----
+## Architecture
 
-## Tailwind CSS - Classes utiles
-
-### Layout
-- `flex` : display flex
-- `grid` : display grid
-- `flex-col` : direction colonne
-- `items-center` : align-items center
-- `justify-center` : justify-content center
-- `justify-between` : space-between
-- `gap-4` : gap de 1rem (4 x 0.25rem)
-
-### Tailles
-- `w-full` : width 100%
-- `h-screen` : height 100vh
-- `max-w-md` : max-width 28rem
-- `p-4` : padding 1rem
-- `m-4` : margin 1rem
-- `px-4` : padding horizontal
-- `py-2` : padding vertical
-
-### Couleurs
-- `bg-white` : fond blanc
-- `bg-gray-100` : fond gris clair
-- `text-gray-900` : texte noir
-- `text-white` : texte blanc
-- `bg-[#e5056e]` : couleur custom (rose Tisséo)
-
-### Texte
-- `text-sm` : petit texte
-- `text-lg` : grand texte
-- `text-xl` : très grand
-- `font-bold` : gras
-- `font-medium` : semi-gras
-
-### Bordures
-- `rounded` : coins arrondis
-- `rounded-lg` : plus arrondis
-- `rounded-full` : cercle
-- `border` : bordure 1px
-- `border-gray-200` : bordure grise
-
-### Responsive (préfixes)
-- `md:` : écrans >= 768px
-- `lg:` : écrans >= 1024px
-- Exemple : `md:flex-row` (flex-row sur tablette+)
-
----
-
-## Next.js App Router - Structure
-
+### Structure principale
 ```
 src/
-├── app/
-│   ├── layout.js      # Layout global (header, etc.)
-│   ├── page.js        # Page d'accueil (/)
-│   ├── chat/
-│   │   └── page.js    # Page chat (/chat)
+├── app/                    # Routes Next.js App Router
+│   ├── page.js            # Accueil (/)
+│   ├── chat/page.js       # Chatbot (/chat)
+│   ├── login/page.js      # Page de login
 │   └── api/
-│       └── chat/
-│           └── route.js  # API endpoint (/api/chat)
-├── components/        # Composants réutilisables
-└── lib/              # Utilitaires (supabase, etc.)
+│       ├── chat/route.js  # API chatbot avec function calling
+│       └── login/route.js # API authentification
+├── components/            # Composants React
+├── lib/
+│   ├── supabase.js       # Client Supabase
+│   └── recherche.js      # Fonctions de recherche transport
+└── middleware.js         # Protection par mot de passe (optionnelle)
 ```
 
-### Pages
-- `page.js` dans un dossier = une route
-- `app/chat/page.js` = `/chat`
+### Flux du chatbot
 
-### API Routes
-- `route.js` dans `app/api/` = un endpoint API
-- `app/api/chat/route.js` = `POST /api/chat`
+1. **Frontend** (`chat/page.js`) → envoie message + historique à `/api/chat`
+2. **API** (`api/chat/route.js`) → appelle OpenAI avec tools (function calling)
+3. **OpenAI** → peut appeler les fonctions définies dans `lib/recherche.js`
+4. **Recherche** → interroge Supabase (données Tisséo) ou Google Directions
+5. **Réponse** → OpenAI formule la réponse finale
 
-### Composants
-- `"use client"` : composant côté client (useState, onClick, etc.)
-- Sans directive : composant serveur (par défaut)
+### Fonctions disponibles pour l'IA (tools)
 
----
+Définies dans `lib/recherche.js` :
+- `rechercherArret(nom)` - Recherche d'arrêts par nom
+- `rechercherLigne(ligne)` - Recherche de lignes (A, B, L6...)
+- `getArretsLigne(idLigne)` - Liste des arrêts d'une ligne
+- `getLignesArret(nomArret)` - Lignes passant par un arrêt
+- `getArretsCommune(commune)` - Arrêts dans une commune
+- `getItineraire(depart, arrivee)` - Calcul d'itinéraire via Google Directions
 
-## Supabase - Fonctions principales
+## Base de données Tisséo
 
-```javascript
-import { supabase } from '@/lib/supabase'
-
-// SELECT * FROM table
-const { data } = await supabase.from('table').select('*')
-
-// SELECT avec colonnes spécifiques
-const { data } = await supabase.from('table').select('col1, col2')
-
-// WHERE col = valeur
-.eq('colonne', 'valeur')
-
-// WHERE col LIKE '%valeur%' (insensible casse)
-.ilike('colonne', '%valeur%')
-
-// LIMIT
-.limit(10)
-
-// ORDER BY
-.order('colonne', { ascending: true })
-```
-
----
-
-## Groq - Appel IA
-
-```javascript
-import Groq from 'groq-sdk'
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
-
-const response = await groq.chat.completions.create({
-  model: "llama-3.3-70b-versatile",
-  messages: [
-    { role: "system", content: "Instructions pour l'IA" },
-    { role: "user", content: "Message utilisateur" }
-  ]
-})
-
-const reponse = response.choices[0].message.content
-```
-
----
-
-## BDD Tisséo - Tables principales
-
+Tables Supabase :
 | Table | Usage |
 |-------|-------|
 | `arrets_physiques` | Arrêts avec coordonnées, adresse, commune |
-| `arrets_logiques` | Regroupements d'arrêts |
 | `lignes` | Lignes de transport (métro, bus, tram) |
-| `arrets_itineraire` | Arrêts sur un itinéraire |
-| `itineraires` | Parcours complets |
+| `arrets_itineraire` | Arrêts sur un itinéraire avec ordre |
 
-### Colonnes utiles
-- `nom_arret` : nom de l'arrêt
-- `commune` : ville
-- `id_ligne` : identifiant ligne
-- `ligne` : numéro/lettre de ligne (A, B, L1...)
-- `nom_ligne` : nom complet
-- `mode` : metro, bus, tram, tad
+## Variables d'environnement
+
+```
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+OPENAI_API_KEY
+GOOGLE_MAPS_API_KEY
+SITE_PASSWORD          # Optionnel : si défini, active la protection par mdp
+```
+
+## Couleur Tisséo
+
+Rose Tisséo : `#e5056e` (utilisé pour les boutons et accents)
