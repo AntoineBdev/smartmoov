@@ -14,12 +14,86 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
   const [locationStatus, setLocationStatus] = useState("idle"); // idle, loading, success, error
+  const [pendingRequest, setPendingRequest] = useState(null); // Demande en attente de position
   const messagesEndRef = useRef(null);
+  const pendingRequestRef = useRef(null);
+  const messagesRef = useRef(messages);
+
+  // Garder les refs à jour
+  useEffect(() => {
+    pendingRequestRef.current = pendingRequest;
+  }, [pendingRequest]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // Auto-scroll vers le bas quand nouveaux messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Fonction pour envoyer un message (réutilisable)
+  const sendMessage = async (userMessage, currentMessages, location = null) => {
+    // Si une position est fournie, on l'ajoute TOUJOURS au contexte
+    // L'IA décidera si elle en a besoin ou pas
+    let messageWithContext = userMessage;
+    if (location) {
+      messageWithContext = `[Position de l'utilisateur: ${location.lat}, ${location.lng}]\n\n${userMessage}`;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: messageWithContext,
+          history: currentMessages.slice(1).map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: data.response },
+        ]);
+
+        // Si l'IA demande la position, on stocke la demande originale
+        const responseText = data.response.toLowerCase();
+        const askingForLocation =
+          (responseText.includes("tu pars d'où") ||
+           responseText.includes("d'où tu pars") ||
+           responseText.includes("où tu pars") ||
+           responseText.includes("point de départ")) &&
+          !responseText.includes("pour y aller"); // Pas si c'est un itinéraire
+
+        if (askingForLocation) {
+          setPendingRequest(userMessage);
+        } else {
+          // Sinon on efface la demande en attente
+          setPendingRequest(null);
+        }
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: `Oups, y'a eu un souci : ${data.error}` },
+        ]);
+      }
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Mince, je n'arrive pas à me connecter. Réessaie dans quelques secondes ! 🔄" },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Demander la géolocalisation
   const requestLocation = () => {
@@ -39,14 +113,35 @@ export default function ChatPage() {
         setUserLocation(loc);
         setLocationStatus("success");
 
-        // Ajouter un message système pour informer
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: `📍 C'est noté ! J'ai ta position (${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}). Maintenant dis-moi où tu veux aller et je calculerai le trajet depuis là où tu es !`,
-          },
-        ]);
+        // Si une demande est en attente, on la relance avec la position
+        // On utilise les refs pour avoir les valeurs actuelles (closure)
+        if (pendingRequestRef.current) {
+          const pending = pendingRequestRef.current;
+          setPendingRequest(null);
+
+          // Ajouter un message pour montrer qu'on a la position
+          const currentMessages = messagesRef.current;
+          const newMessages = [
+            ...currentMessages,
+            {
+              role: "assistant",
+              content: `📍 Position reçue ! Je calcule ton trajet...`,
+            },
+          ];
+          setMessages(newMessages);
+
+          // Relancer la demande avec la position
+          sendMessage(pending, newMessages, loc);
+        } else {
+          // Pas de demande en attente, juste confirmer la position
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content: `📍 C'est noté ! J'ai ta position (${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}). Maintenant dis-moi où tu veux aller et je calculerai le trajet depuis là où tu es !`,
+            },
+          ]);
+        }
       },
       (error) => {
         setLocationStatus("error");
@@ -66,73 +161,15 @@ export default function ChatPage() {
     e.preventDefault();
     if (!inputValue.trim() || isLoading) return;
 
-    let userMessage = inputValue.trim();
-
-    // Si l'utilisateur a partagé sa position, on l'ajoute au contexte du message
-    // (seulement si ça ressemble à une demande de trajet)
-    let messageWithContext = userMessage;
-    if (userLocation && (
-      userMessage.toLowerCase().includes("aller") ||
-      userMessage.toLowerCase().includes("trajet") ||
-      userMessage.toLowerCase().includes("itinéraire") ||
-      userMessage.toLowerCase().includes("comment") ||
-      userMessage.toLowerCase().includes("rejoindre")
-    )) {
-      messageWithContext = `[Position de l'utilisateur: ${userLocation.lat}, ${userLocation.lng}]\n\n${userMessage}`;
-    }
-
+    const userMessage = inputValue.trim();
     setInputValue("");
 
-    // Ajouter le message utilisateur (sans le contexte de position pour l'affichage)
+    // Ajouter le message utilisateur
     const newMessages = [...messages, { role: "user", content: userMessage }];
     setMessages(newMessages);
 
-    // Appeler notre API chat
-    setIsLoading(true);
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: messageWithContext,
-          // On envoie l'historique (sans le message système initial)
-          history: newMessages.slice(1).map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // Ajouter la réponse de l'IA
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: data.response },
-        ]);
-      } else {
-        // Afficher l'erreur
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: `Oups, y'a eu un souci : ${data.error}`,
-          },
-        ]);
-      }
-    } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content:
-            "Mince, je n'arrive pas à me connecter. Réessaie dans quelques secondes ! 🔄",
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
+    // Envoyer le message
+    await sendMessage(userMessage, newMessages, userLocation);
   };
 
   const suggestions = [

@@ -5,65 +5,84 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commandes
 
 ```bash
-npm run dev      # Serveur de développement
+npm run dev      # Serveur de développement (http://localhost:3000)
 npm run build    # Build production
 npm run lint     # ESLint
+npm run start    # Démarrer en production (après build)
 ```
 
 ## Stack technique
 
-- **Framework** : Next.js 16 (App Router)
+- **Framework** : Next.js 16 (App Router, React 19, React Compiler)
 - **Style** : Tailwind CSS 4
-- **BDD** : Supabase (PostgreSQL)
-- **IA** : OpenAI GPT-4o-mini (avec function calling)
-- **Itinéraires** : Google Directions API
+- **BDD** : Supabase (PostgreSQL avec pg_trgm pour recherche fuzzy)
+- **IA** : OpenAI GPT-4o-mini (avec function calling / tools)
+- **Itinéraires** : Google Directions API (mode transit)
 - **Langue** : Français (parler français avec l'utilisateur)
 
 ## Architecture
 
-### Structure principale
+### Flux principal du chatbot
+
 ```
-src/
-├── app/                    # Routes Next.js App Router
-│   ├── page.js            # Accueil (/)
-│   ├── chat/page.js       # Chatbot (/chat)
-│   ├── login/page.js      # Page de login
-│   └── api/
-│       ├── chat/route.js  # API chatbot avec function calling
-│       └── login/route.js # API authentification
-├── components/            # Composants React
-├── lib/
-│   ├── supabase.js       # Client Supabase
-│   └── recherche.js      # Fonctions de recherche transport
-└── middleware.js         # Protection par mot de passe (optionnelle)
+┌─────────────────┐     POST /api/chat      ┌──────────────────┐
+│  chat/page.js   │ ──────────────────────► │ api/chat/route.js│
+│  (Client React) │  message + historique   │   (API Route)    │
+└─────────────────┘                         └────────┬─────────┘
+        ▲                                            │
+        │                                            ▼
+        │                                   ┌──────────────────┐
+        │                                   │     OpenAI       │
+        │                                   │  (GPT-4o-mini)   │
+        │                                   └────────┬─────────┘
+        │                                            │ tool_calls
+        │                                            ▼
+        │                                   ┌──────────────────┐
+        │                                   │ lib/recherche.js │
+        │                                   │   (6 fonctions)  │
+        │                                   └────────┬─────────┘
+        │                                            │
+        │                              ┌─────────────┼─────────────┐
+        │                              ▼                           ▼
+        │                     ┌─────────────────┐        ┌─────────────────┐
+        │                     │    Supabase     │        │ Google Directions│
+        │                     │ (données Tisséo)│        │  (itinéraires)  │
+        │                     └─────────────────┘        └─────────────────┘
+        │                                            │
+        └────────────────────────────────────────────┘
+                         réponse formatée
 ```
 
-### Flux du chatbot
+### Fichiers clés
 
-1. **Frontend** (`chat/page.js`) → envoie message + historique à `/api/chat`
-2. **API** (`api/chat/route.js`) → appelle OpenAI avec tools (function calling)
-3. **OpenAI** → peut appeler les fonctions définies dans `lib/recherche.js`
-4. **Recherche** → interroge Supabase (données Tisséo) ou Google Directions
-5. **Réponse** → OpenAI formule la réponse finale
+| Fichier | Rôle |
+|---------|------|
+| `src/app/api/chat/route.js` | API principale : system prompt, définition des tools OpenAI, boucle de function calling |
+| `src/lib/recherche.js` | 6 fonctions de recherche (arrêts, lignes, itinéraires) |
+| `src/app/chat/page.js` | Interface chat avec géolocalisation utilisateur |
+| `src/middleware.js` | Protection par mot de passe (optionnelle via `SITE_PASSWORD`) |
 
-### Fonctions disponibles pour l'IA (tools)
+### Fonctions tools pour OpenAI
 
-Définies dans `lib/recherche.js` :
-- `rechercherArret(nom)` - Recherche d'arrêts par nom
-- `rechercherLigne(ligne)` - Recherche de lignes (A, B, L6...)
-- `getArretsLigne(idLigne)` - Liste des arrêts d'une ligne
-- `getLignesArret(nomArret)` - Lignes passant par un arrêt
-- `getArretsCommune(commune)` - Arrêts dans une commune
-- `getItineraire(depart, arrivee)` - Calcul d'itinéraire via Google Directions
+Définies dans `lib/recherche.js`, déclarées dans `api/chat/route.js` :
 
-## Base de données Tisséo
+| Fonction | Usage |
+|----------|-------|
+| `rechercherArret(nom)` | Recherche arrêts (exacte puis fuzzy via pg_trgm) |
+| `rechercherLigne(ligne)` | Info sur une ligne (A, B, L6, T1...) |
+| `getArretsLigne(idLigne)` | Liste ordonnée des arrêts d'une ligne |
+| `getLignesArret(nomArret)` | Lignes passant par un arrêt |
+| `getArretsCommune(commune)` | Arrêts dans une commune |
+| `getItineraire(depart, arrivee)` | Calcul via Google Directions (accepte coordonnées GPS) |
 
-Tables Supabase :
-| Table | Usage |
-|-------|-------|
-| `arrets_physiques` | Arrêts avec coordonnées, adresse, commune |
-| `lignes` | Lignes de transport (métro, bus, tram) |
-| `arrets_itineraire` | Arrêts sur un itinéraire avec ordre |
+## Base de données Supabase
+
+Tables :
+- `arrets_physiques` : nom_arret, commune, adresse + coordonnées
+- `lignes` : ligne, nom_ligne, mode (metro/bus/tram), couleur
+- `arrets_itineraire` : liaison ligne↔arrêt avec ordre
+
+Fonction RPC : `recherche_arret_fuzzy(search_term)` pour la recherche avec tolérance aux fautes
 
 ## Variables d'environnement
 
@@ -75,6 +94,7 @@ GOOGLE_MAPS_API_KEY
 SITE_PASSWORD          # Optionnel : si défini, active la protection par mdp
 ```
 
-## Couleur Tisséo
+## Couleurs
 
-Rose Tisséo : `#e5056e` (utilisé pour les boutons et accents)
+- Rose Tisséo : `#e5056e`
+- Dégradé principal : `from-[#e5056e] to-[#2d1d67]`

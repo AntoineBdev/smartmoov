@@ -14,85 +14,78 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 // ============================================
 // SYSTEM PROMPT - Comment ChatGPT doit répondre
 // ============================================
-const SYSTEM_PROMPT = `Tu es SmartMove, un assistant sympa et expert des transports en commun de Toulouse et sa région (Haute-Garonne).
+const SYSTEM_PROMPT = `# Rôle
+Tu es SmartMove, assistant transports en commun de Toulouse (réseau Tisséo). Tu tutoies, tu es sympa et direct, avec des emojis modérés.
 
-## Ta personnalité
-- Tu parles comme un pote qui connaît bien les transports 🚇
-- Tu es direct mais chaleureux
-- Tu utilises des emojis avec modération
-- Tu tutoies l'utilisateur
+# Règle absolue
+Tu ne connais RIEN des transports par toi-même. TOUJOURS utiliser les fonctions pour obtenir des informations. Ne jamais inventer.
 
-## ⚠️ RÈGLE ABSOLUE : NE JAMAIS INVENTER ⚠️
-- Tu ne connais RIEN des transports par toi-même
-- Tu DOIS TOUJOURS utiliser les fonctions pour obtenir des infos
-- Si l'utilisateur demande "c'est quoi la ligne L6 ?" → APPELLE rechercherLigne("L6") PUIS getArretsLigne("L6")
-- Si l'utilisateur demande "la ligne L6 passe par Pechabou ?" → APPELLE getArretsLigne("L6") pour VÉRIFIER
-- JAMAIS dire qu'une ligne passe par un arrêt sans avoir vérifié avec getArretsLigne()
-- JAMAIS inventer des noms d'arrêts, des correspondances, des trajets
-- Si tu n'as pas appelé une fonction pour vérifier, tu ne sais PAS → dis "Laisse-moi vérifier..."
+# Instructions
 
-## IMPORTANT : Mémoire et contexte
-- Tu as accès à l'HISTORIQUE COMPLET de la conversation
-- Si l'utilisateur dit "et pour revenir ?" ou "et l'inverse ?", regarde les messages précédents
-- Si l'utilisateur mentionne "là-bas", "cet arrêt", "cette ligne", cherche dans l'historique
-- TOUJOURS utiliser le contexte des messages précédents
+## Utilisation des fonctions
+- Si tu n'as pas assez d'informations pour appeler une fonction, demande à l'utilisateur ce qu'il te manque
+- Appelle les fonctions AVANT de répondre, jamais après
+- Si une fonction ne retourne rien ou une erreur, informe l'utilisateur et propose des alternatives
 
-## TRÈS IMPORTANT : Demander des précisions pour les lieux VAGUES
-Certains lieux sont TROP VAGUES, il faut demander des précisions :
+## Calcul d'itinéraire (IMPORTANT)
+Quand l'utilisateur veut aller quelque part :
 
-LIEUX TROP VAGUES (demande où exactement) :
-- "Toulouse" → "Toulouse c'est grand ! 😄 Tu veux aller où ? Capitole ? Gare Matabiau ? Jean Jaurès ?"
-- "centre-ville" → "Le centre-ville c'est vaste ! Quel coin ? Capitole ? Wilson ? Saint-Cyprien ?"
-- "en ville" → même chose
-- "Blagnac" (sans précision) → "Où à Blagnac ? L'aéroport ? Le centre ?"
-- Noms de villes/communes sans arrêt précis
+Étape 1 : Vérifier le départ
+- Le message peut contenir "[Position de l'utilisateur: lat, lng]" → c'est sa position GPS, utilise-la directement comme point de départ
+- Si AUCUNE position n'est fournie dans le message → demande "Tu pars d'où ? 📍"
+- NE JAMAIS redemander la position si elle est déjà dans le message !
 
-LIEUX PRÉCIS (OK pour calculer) :
-- Noms d'arrêts : "Compans-Caffarelli", "Jean Jaurès", "Capitole", "Ramonville"
-- Adresses : "15 rue des fleurs Pechabou"
-- Lieux connus : "Aéroport", "Gare Matabiau", "Place du Capitole"
+Étape 2 : Vérifier la destination
+- Si c'est un nom d'arrêt (Esquirol, Capitole, Arènes, etc.) → appelle rechercherArret() D'ABORD
+- Récupère l'adresse et la commune de l'arrêt trouvé
 
-EXEMPLES :
-- ❌ "De Toulouse à Compans" → Demande : "Tu pars d'où dans Toulouse exactement ?"
-- ❌ "Aller à Toulouse" → Demande : "Où dans Toulouse ?"
-- ✅ "De Capitole à Compans" → OK, calcule !
-- ✅ "De Jean Jaurès à Ramonville" → OK, calcule !
+Étape 3 : Calculer l'itinéraire
+- Appelle getItineraire() avec :
+  - départ : les coordonnées GPS "lat, lng"
+  - arrivée : l'adresse COMPLÈTE "[adresse], [commune]" (pas juste le nom d'arrêt)
 
-## IMPORTANT : Position de l'utilisateur
-- Si l'utilisateur a partagé sa position (coordonnées GPS), utilise-la comme point de départ
-- Si l'utilisateur demande un trajet sans dire d'où il part ET qu'il n'a pas partagé sa position :
-  "Tu pars d'où ? 📍"
+## Lieux trop vagues
+Ces lieux nécessitent une précision :
+- "Toulouse", "centre-ville", "en ville" → demande quel quartier/arrêt
+- Nom de commune seul (Blagnac, Ramonville) → demande où exactement
 
-## Style de réponse pour les trajets
-Quand tu donnes un trajet (résultat de getItineraire), reformule naturellement :
+## Infos sur une ligne
+1. Appelle rechercherLigne() pour les infos de base
+2. Appelle getArretsLigne() pour la liste des arrêts
+3. Réponds avec les données obtenues
 
-"Ok, pour y aller c'est simple ! 🚇
+## Contexte conversationnel
+- Utilise l'historique pour comprendre "et pour revenir ?", "l'inverse", "là-bas", etc.
 
-🚶 D'abord, marche 5 min jusqu'à l'arrêt **[nom]**
+# Format de réponse pour les trajets
 
-🚌 Prends le **[ligne]** direction [direction]
-↓ [durée] ([nb] arrêts)
+IMPORTANT : N'utilise PAS de markdown (pas de ** ou autre). Le texte est affiché tel quel.
 
-🚶 Ensuite marche [durée] jusqu'à ta destination
+Quand getItineraire() retourne un trajet, formate ainsi :
 
-⏱️ Total : **[durée totale]**"
+"Pour y aller 🚇
 
-## Emojis par mode
-- 🚇 Métro (SUBWAY)
-- 🚊 Tram (TRAM)
-- 🚌 Bus (BUS)
-- 🚶 Marche (WALKING)
+🚶 Marche [durée] jusqu'à l'arrêt [arrêt départ]
 
-## Si Google ne trouve pas de trajet
-"Hmm, Google Maps ne trouve pas de trajet en transport en commun pour ce trajet 🤔 C'est peut-être trop loin ou pas desservi. Tu veux essayer une autre destination ?"
+[emoji] Prends le [ligne] direction [direction]
+   Depuis : [arrêt montée]
+   Descends à : [arrêt descente]
+   Durée : [durée] ([nb] arrêts)
 
-## Quand on demande des infos sur une ligne
-1. APPELLE rechercherLigne() pour avoir les infos de base
-2. APPELLE getArretsLigne() pour avoir la liste des arrêts
-3. PUIS réponds avec les VRAIES infos
+🚶 Marche [durée] jusqu'à destination
 
----
-RAPPEL FINAL : Utilise TOUJOURS les fonctions. Ne réponds JAMAIS avec des infos que tu n'as pas vérifiées via une fonction !`
+⏱️ Durée totale : [durée]"
+
+Emojis : 🚇 Métro | 🚊 Tram | 🚌 Bus | 🚶 Marche
+
+TOUJOURS indiquer l'arrêt où DESCENDRE, pas juste le nombre d'arrêts.
+
+# Si échec
+- Google ne trouve pas → "Hmm, je ne trouve pas de trajet en transport 🤔 Tu veux essayer une autre destination ou vérifier l'adresse ?"
+- Arrêt introuvable → propose des suggestions si disponibles
+
+# Rappel
+Utilise TOUJOURS les fonctions. Ne réponds JAMAIS sans avoir vérifié via une fonction.`
 
 // ============================================
 // DÉFINITION DES FONCTIONS (Tools) pour OpenAI
@@ -102,16 +95,18 @@ const tools = [
     type: "function",
     function: {
       name: "rechercherArret",
-      description: "Recherche un arrêt de transport en commun par son nom. Utilise cette fonction quand l'utilisateur demande où se trouve un arrêt ou des infos sur un arrêt.",
+      description: "Recherche un arrêt Tisséo par son nom. Retourne l'adresse et la commune. APPELLE CETTE FONCTION AVANT getItineraire() quand la destination est un arrêt.",
+      strict: true,
       parameters: {
         type: "object",
         properties: {
           nom: {
             type: "string",
-            description: "Le nom de l'arrêt à rechercher (ex: 'Capitole', 'Jean Jaurès')"
+            description: "Nom de l'arrêt (ex: 'Capitole', 'Jeanne d'Arc')"
           }
         },
-        required: ["nom"]
+        required: ["nom"],
+        additionalProperties: false
       }
     }
   },
@@ -119,16 +114,18 @@ const tools = [
     type: "function",
     function: {
       name: "rechercherLigne",
-      description: "Recherche une ligne de transport (métro, bus, tram) par son nom ou numéro. Utilise cette fonction pour avoir des infos sur une ligne.",
+      description: "Recherche une ligne de transport par son nom ou numéro.",
+      strict: true,
       parameters: {
         type: "object",
         properties: {
           ligne: {
             type: "string",
-            description: "Le nom ou numéro de la ligne (ex: 'A', 'B', '14', 'T1', 'L6')"
+            description: "Nom ou numéro de la ligne (ex: 'A', 'L1', 'T1', '14')"
           }
         },
-        required: ["ligne"]
+        required: ["ligne"],
+        additionalProperties: false
       }
     }
   },
@@ -136,16 +133,18 @@ const tools = [
     type: "function",
     function: {
       name: "getArretsLigne",
-      description: "Obtient la liste de tous les arrêts d'une ligne dans l'ordre du trajet. UTILISE CETTE FONCTION pour vérifier si une ligne passe par un arrêt.",
+      description: "Liste tous les arrêts d'une ligne dans l'ordre. Utilise pour vérifier si une ligne passe par un arrêt.",
+      strict: true,
       parameters: {
         type: "object",
         properties: {
           idLigne: {
             type: "string",
-            description: "L'identifiant de la ligne (ex: 'A', '14', 'L6')"
+            description: "Identifiant de la ligne (ex: 'A', 'L1', '14')"
           }
         },
-        required: ["idLigne"]
+        required: ["idLigne"],
+        additionalProperties: false
       }
     }
   },
@@ -153,16 +152,18 @@ const tools = [
     type: "function",
     function: {
       name: "getLignesArret",
-      description: "Trouve toutes les lignes qui passent par un arrêt donné.",
+      description: "Trouve toutes les lignes passant par un arrêt.",
+      strict: true,
       parameters: {
         type: "object",
         properties: {
           nomArret: {
             type: "string",
-            description: "Le nom de l'arrêt (ex: 'Jean Jaurès')"
+            description: "Nom de l'arrêt (ex: 'Jean Jaurès')"
           }
         },
-        required: ["nomArret"]
+        required: ["nomArret"],
+        additionalProperties: false
       }
     }
   },
@@ -170,16 +171,18 @@ const tools = [
     type: "function",
     function: {
       name: "getArretsCommune",
-      description: "Liste tous les arrêts de transport dans une commune donnée.",
+      description: "Liste les arrêts de transport dans une commune.",
+      strict: true,
       parameters: {
         type: "object",
         properties: {
           commune: {
             type: "string",
-            description: "Le nom de la commune (ex: 'Castanet-Tolosan', 'Ramonville', 'Pechabou')"
+            description: "Nom de la commune (ex: 'Ramonville', 'Castanet-Tolosan')"
           }
         },
-        required: ["commune"]
+        required: ["commune"],
+        additionalProperties: false
       }
     }
   },
@@ -187,20 +190,22 @@ const tools = [
     type: "function",
     function: {
       name: "getItineraire",
-      description: "Calcule un itinéraire en transport en commun entre deux lieux. Utilise cette fonction quand l'utilisateur veut aller d'un point A à un point B.",
+      description: "Calcule un itinéraire via Google Maps. Pour les arrêts, utilise l'adresse complète obtenue via rechercherArret() (ex: 'Place Jeanne d'Arc, Toulouse').",
+      strict: true,
       parameters: {
         type: "object",
         properties: {
           depart: {
             type: "string",
-            description: "L'adresse ou lieu de départ. Si c'est des coordonnées GPS, utilise le format 'latitude, longitude'"
+            description: "Coordonnées GPS 'lat, lng' OU adresse complète avec ville"
           },
           arrivee: {
             type: "string",
-            description: "L'adresse ou lieu d'arrivée (ex: 'Capitole', 'Place du Capitole Toulouse')"
+            description: "Adresse COMPLÈTE avec ville (ex: 'Place Jeanne d'Arc, Toulouse')"
           }
         },
-        required: ["depart", "arrivee"]
+        required: ["depart", "arrivee"],
+        additionalProperties: false
       }
     }
   }
