@@ -57,9 +57,11 @@ npm run start    # Démarrer en production (après build)
 
 | Fichier | Rôle |
 |---------|------|
-| `src/app/api/chat/route.js` | API principale : system prompt, définition des tools OpenAI, boucle de function calling |
+| `src/app/api/chat/route.js` | API principale : system prompt, définition des tools OpenAI, boucle de function calling (max 5 iterations) |
 | `src/lib/recherche.js` | 6 fonctions de recherche (arrêts, lignes, itinéraires) |
+| `src/lib/supabase.js` | Client Supabase singleton |
 | `src/app/chat/page.js` | Interface chat avec géolocalisation utilisateur |
+| `src/app/page.js` | Landing page (HeroSection, FeaturesSection, CTASection) |
 | `src/middleware.js` | Protection par mot de passe (optionnelle via `SITE_PASSWORD`) |
 
 ### Fonctions tools pour OpenAI

@@ -35,10 +35,17 @@ export default function ChatPage() {
 
   // Fonction pour envoyer un message (réutilisable)
   const sendMessage = async (userMessage, currentMessages, location = null) => {
-    // Si une position est fournie, on l'ajoute TOUJOURS au contexte
-    // L'IA décidera si elle en a besoin ou pas
+    // Détecter si l'utilisateur précise un point de départ
+    // Patterns : "de X à Y", "depuis X", "partir de X", "de X vers Y"
+    const hasExplicitDeparture =
+      /\bde\s+.+\s+(à|a|vers|jusqu'à|jusqua)\s+/i.test(userMessage) ||
+      /\bdepuis\s+/i.test(userMessage) ||
+      /\bpartir de\s+/i.test(userMessage) ||
+      /\ben partant de\s+/i.test(userMessage);
+
+    // On ajoute la position GPS SEULEMENT si l'utilisateur ne précise pas de départ
     let messageWithContext = userMessage;
-    if (location) {
+    if (location && !hasExplicitDeparture) {
       messageWithContext = `[Position de l'utilisateur: ${location.lat}, ${location.lng}]\n\n${userMessage}`;
     }
 
@@ -180,7 +187,7 @@ export default function ChatPage() {
   ];
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col bg-gray-50">
+    <div className="flex h-[calc(100vh-4rem)] flex-col bg-gray-50 dark:bg-gray-900">
       {/* Chat Container */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Messages Area */}
@@ -216,7 +223,7 @@ export default function ChatPage() {
                     className={`rounded-2xl px-4 py-3 ${
                       message.role === "user"
                         ? "bg-gray-700 text-white"
-                        : "bg-white text-gray-900 shadow-sm"
+                        : "bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-gray-100"
                     }`}
                   >
                     <p className="text-[15px] leading-relaxed whitespace-pre-wrap">
@@ -234,7 +241,7 @@ export default function ChatPage() {
                   <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#e5056e] to-[#2d1d67]">
                     <span className="text-sm font-semibold text-white">SM</span>
                   </div>
-                  <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                  <div className="rounded-2xl bg-white px-4 py-3 shadow-sm dark:bg-gray-800">
                     <div className="flex gap-1">
                       <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.3s]"></div>
                       <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.15s]"></div>
@@ -248,7 +255,7 @@ export default function ChatPage() {
             {/* Suggestions (only show at start) */}
             {messages.length === 1 && (
               <div className="space-y-3 pt-4">
-                <p className="text-center text-sm font-medium text-gray-500">
+                <p className="text-center text-sm font-medium text-gray-500 dark:text-gray-400">
                   Essaie une de ces questions :
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -256,7 +263,7 @@ export default function ChatPage() {
                     <button
                       key={index}
                       onClick={() => setInputValue(suggestion)}
-                      className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-left text-sm text-gray-700 transition-all hover:border-[#e5056e] hover:bg-gray-50"
+                      className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-left text-sm text-gray-700 transition-all hover:border-[#e5056e] hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                     >
                       {suggestion}
                     </button>
@@ -271,7 +278,7 @@ export default function ChatPage() {
         </div>
 
         {/* Input Area */}
-        <div className="border-t border-gray-200 bg-white px-4 py-4">
+        <div className="border-t border-gray-200 bg-white px-4 py-4 dark:border-gray-700 dark:bg-gray-800">
           <div className="mx-auto max-w-3xl">
             <form onSubmit={handleSendMessage} className="flex gap-3">
               {/* Bouton Localisation */}
@@ -283,10 +290,10 @@ export default function ChatPage() {
                   locationStatus === "success"
                     ? "bg-green-500 text-white"
                     : locationStatus === "error"
-                    ? "bg-red-100 text-red-500"
+                    ? "bg-red-100 text-red-500 dark:bg-red-900/30"
                     : locationStatus === "loading"
-                    ? "bg-gray-200 text-gray-400 animate-pulse"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    ? "bg-gray-200 text-gray-400 animate-pulse dark:bg-gray-700"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
                 }`}
                 title={
                   locationStatus === "success"
@@ -320,7 +327,7 @@ export default function ChatPage() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 placeholder="Où veux-tu aller ?"
-                className="flex-1 rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-gray-900 placeholder-gray-500 outline-none transition-all focus:border-[#e5056e] focus:bg-white focus:ring-2 focus:ring-[#e5056e]/20"
+                className="flex-1 rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-gray-900 placeholder-gray-500 outline-none transition-all focus:border-[#e5056e] focus:bg-white focus:ring-2 focus:ring-[#e5056e]/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:bg-gray-700"
                 disabled={isLoading}
               />
               <button
@@ -343,7 +350,7 @@ export default function ChatPage() {
                 </svg>
               </button>
             </form>
-            <p className="mt-2 text-center text-xs text-gray-500">
+            <p className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
               {userLocation
                 ? "📍 Position partagée • SmartMove peut calculer tes trajets"
                 : "Clique sur 📍 pour partager ta position"}
