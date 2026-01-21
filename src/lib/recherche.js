@@ -185,9 +185,9 @@ export async function getItineraire(depart, arrivee) {
     return coordRegex.test(str.trim())
   }
 
-  // On ajoute "Haute-Garonne France" SEULEMENT si c'est pas des coordonnées GPS
-  const departFormate = isCoordinates(depart) ? depart : `${depart}, Haute-Garonne, France`
-  const arriveeFormate = isCoordinates(arrivee) ? arrivee : `${arrivee}, Haute-Garonne, France`
+  // On ajoute "France" pour aider Google à localiser (pas de restriction à la Haute-Garonne)
+  const departFormate = isCoordinates(depart) ? depart : `${depart}, France`
+  const arriveeFormate = isCoordinates(arrivee) ? arrivee : `${arrivee}, France`
 
   // URL de l'API Google Directions
   const url = `https://maps.googleapis.com/maps/api/directions/json?` +

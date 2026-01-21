@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 
 export function middleware(request) {
+  // Mode maintenance : bloquer tout le monde
+  if (process.env.MAINTENANCE_MODE === 'true') {
+    return new NextResponse('🚧 Site en maintenance, reviens bientôt !', { status: 503 })
+  }
+
   // Si SITE_PASSWORD n'est pas défini, pas d'authentification
   if (!process.env.SITE_PASSWORD) {
     return NextResponse.next()
