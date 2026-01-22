@@ -53,16 +53,25 @@ npm run start    # Démarrer en production (après build)
                          réponse formatée
 ```
 
+### Boucle de function calling
+
+L'API `/api/chat/route.js` utilise une boucle (max 5 itérations) :
+1. Envoie le message à OpenAI avec les tools disponibles
+2. Si OpenAI demande un tool_call → exécute la fonction correspondante
+3. Ajoute le résultat aux messages et renvoie à OpenAI
+4. Répète jusqu'à une réponse finale (sans tool_call)
+
 ### Fichiers clés
 
 | Fichier | Rôle |
 |---------|------|
-| `src/app/api/chat/route.js` | API principale : system prompt, définition des tools OpenAI, boucle de function calling (max 5 iterations) |
+| `src/app/api/chat/route.js` | API principale : system prompt, définition des tools OpenAI, boucle de function calling |
 | `src/lib/recherche.js` | 6 fonctions de recherche (arrêts, lignes, itinéraires) |
 | `src/lib/supabase.js` | Client Supabase singleton |
-| `src/app/chat/page.js` | Interface chat avec géolocalisation utilisateur |
+| `src/app/chat/page.js` | Interface chat avec géolocalisation automatique (navigator.geolocation) |
 | `src/app/page.js` | Landing page (HeroSection, FeaturesSection, CTASection) |
-| `src/middleware.js` | Protection par mot de passe (optionnelle via `SITE_PASSWORD`) |
+| `src/middleware.js` | Protection par mot de passe + mode maintenance |
+| `src/components/Header.js` | Navigation + toggle dark mode (localStorage) |
 
 ### Fonctions tools pour OpenAI
 
@@ -75,7 +84,7 @@ Définies dans `lib/recherche.js`, déclarées dans `api/chat/route.js` :
 | `getArretsLigne(idLigne)` | Liste ordonnée des arrêts d'une ligne |
 | `getLignesArret(nomArret)` | Lignes passant par un arrêt |
 | `getArretsCommune(commune)` | Arrêts dans une commune |
-| `getItineraire(depart, arrivee)` | Calcul via Google Directions (accepte coordonnées GPS) |
+| `getItineraire(depart, arrivee)` | Calcul via Google Directions (accepte coordonnées GPS ou adresse) |
 
 ## Base de données Supabase
 
@@ -86,6 +95,8 @@ Tables :
 
 Fonction RPC : `recherche_arret_fuzzy(search_term)` pour la recherche avec tolérance aux fautes
 
+Script de création : `Docs/schema.sql`
+
 ## Variables d'environnement
 
 ```
@@ -93,10 +104,25 @@ NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 OPENAI_API_KEY
 GOOGLE_MAPS_API_KEY
-SITE_PASSWORD          # Optionnel : si défini, active la protection par mdp
+SITE_PASSWORD          # Optionnel : active la protection par mdp si défini
+MAINTENANCE_MODE       # Optionnel : "true" → 503 sur tout le site
 ```
+
+## Middleware (src/middleware.js)
+
+1. **Mode maintenance** : Si `MAINTENANCE_MODE=true` → retourne 503 pour toutes les requêtes
+2. **Protection par mot de passe** : Si `SITE_PASSWORD` défini → redirige vers `/login` si pas authentifié
+
+## Zone couverte & Limitations
+
+- **Zone** : Occitanie uniquement (Toulouse, Montpellier, Narbonne, Perpignan, Carcassonne, Albi, etc.)
+- **Limitation** : Pas d'accès aux horaires trains en temps réel → redirige vers SNCF Connect
 
 ## Couleurs
 
 - Rose Tisséo : `#e5056e`
 - Dégradé principal : `from-[#e5056e] to-[#2d1d67]`
+
+## Path alias
+
+`@/*` → `./src/*` (configuré dans jsconfig.json)
