@@ -5,7 +5,11 @@ import {
   getArretsLigne,
   getLignesArret,
   getArretsCommune,
-  getItineraire
+  getItineraire,
+  rechercherGare,
+  getLignesGare,
+  getItineraireSNCF,
+  getProchainsDepartsSNCF
 } from '@/lib/recherche'
 
 // Créer le client OpenAI
@@ -20,11 +24,11 @@ Tu es SmartMove, assistant transports en commun de Toulouse et de la région Occ
 # Date du jour
 Nous sommes le ${new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.
 
-# Horaires
-IMPORTANT : Tu n'as PAS accès aux horaires en temps réel des trains (TER, TGV, Intercités).
-- Pour les horaires de train → redirige vers SNCF Connect ou l'appli Tisséo
-- Tu peux donner le TRAJET (quel bus/métro prendre pour aller à la gare, puis quel type de train) mais PAS les horaires précis
-- Si on te demande "à quelle heure part le train" → "Pour les horaires précis des trains, consulte SNCF Connect ou l'appli Tisséo ! 🚆"
+# Horaires trains (SNCF)
+Tu as ACCÈS aux horaires SNCF en temps réel pour l'Occitanie (TER liO, Intercités, TGV).
+- Pour les trajets en train → utilise rechercherGare() puis getItineraireSNCF()
+- Pour les prochains départs d'une gare → utilise getProchainsDepartsSNCF()
+- Si le trajet implique du train ET du métro/bus, utilise les DEUX systèmes
 
 # Zone couverte : OCCITANIE uniquement
 Tu couvres les trajets en Occitanie : Toulouse, Montpellier, Narbonne, Perpignan, Carcassonne, Albi, Tarbes, Rodez, Cahors, Montauban, Nîmes, Béziers, Auch, Foix, etc.
@@ -249,6 +253,87 @@ const tools = [
         additionalProperties: false
       }
     }
+  },
+  // ===== FONCTIONS SNCF =====
+  {
+    type: "function",
+    function: {
+      name: "rechercherGare",
+      description: "Recherche une gare SNCF par son nom. Retourne l'ID SNCF nécessaire pour les autres fonctions SNCF.",
+      strict: true,
+      parameters: {
+        type: "object",
+        properties: {
+          nom: {
+            type: "string",
+            description: "Nom de la gare (ex: 'Toulouse Matabiau', 'Montpellier', 'Albi')"
+          }
+        },
+        required: ["nom"],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "getLignesGare",
+      description: "Liste toutes les lignes de train (TER, TGV, Intercités...) passant par une gare SNCF.",
+      strict: true,
+      parameters: {
+        type: "object",
+        properties: {
+          gareId: {
+            type: "string",
+            description: "ID SNCF de la gare (ex: 'stop_area:SNCF:87611004')"
+          }
+        },
+        required: ["gareId"],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "getItineraireSNCF",
+      description: "Calcule un itinéraire en train SNCF entre deux gares. Utilise les ID SNCF obtenus via rechercherGare().",
+      strict: true,
+      parameters: {
+        type: "object",
+        properties: {
+          departId: {
+            type: "string",
+            description: "ID SNCF de la gare de départ (ex: 'stop_area:SNCF:87611004')"
+          },
+          arriveeId: {
+            type: "string",
+            description: "ID SNCF de la gare d'arrivée"
+          }
+        },
+        required: ["departId", "arriveeId"],
+        additionalProperties: false
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "getProchainsDepartsSNCF",
+      description: "Affiche les prochains départs de trains depuis une gare SNCF.",
+      strict: true,
+      parameters: {
+        type: "object",
+        properties: {
+          gareId: {
+            type: "string",
+            description: "ID SNCF de la gare (ex: 'stop_area:SNCF:87611004')"
+          }
+        },
+        required: ["gareId"],
+        additionalProperties: false
+      }
+    }
   }
 ]
 
@@ -277,6 +362,19 @@ async function executeTool(name, args) {
       break
     case 'getItineraire':
       result = await getItineraire(args.depart, args.arrivee)
+      break
+    // Fonctions SNCF
+    case 'rechercherGare':
+      result = await rechercherGare(args.nom)
+      break
+    case 'getLignesGare':
+      result = await getLignesGare(args.gareId)
+      break
+    case 'getItineraireSNCF':
+      result = await getItineraireSNCF(args.departId, args.arriveeId)
+      break
+    case 'getProchainsDepartsSNCF':
+      result = await getProchainsDepartsSNCF(args.gareId)
       break
     default:
       result = { error: `Fonction inconnue: ${name}` }
