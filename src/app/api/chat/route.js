@@ -131,6 +131,13 @@ Si l'utilisateur ne mentionne PAS d'horaire/date → demande "Tu veux partir qua
 ## Contexte conversationnel
 - Utilise l'historique pour comprendre "et pour revenir ?", "l'inverse", "là-bas", etc.
 
+## Trajet retour ("et pour revenir ?", "l'inverse", "le retour")
+Quand l'utilisateur demande le trajet retour :
+- Inverse départ et arrivée du trajet précédent (trouvé dans l'historique)
+- Si le trajet ALLER était un trajet local (bus/métro/tram) → appelle getItineraire() avec départ et arrivée inversés
+- Si le trajet ALLER impliquait un train SNCF → demande "Tu veux repartir quand ? 🕐" AVANT de calculer
+- N'invente JAMAIS le retour à partir de l'aller. Appelle toujours getItineraire() car les lignes et directions changent dans l'autre sens.
+
 # Format de réponse pour les trajets
 
 IMPORTANT : N'utilise PAS de markdown (pas de ** ou autre). Le texte est affiché tel quel.
@@ -473,19 +480,23 @@ export async function POST(request) {
       { role: "user", content: message }
     ]
 
+    // Détecter si le message nécessite un appel de fonction (transport)
+    // Les messages conversationnels (merci, salut, ok, etc.) n'en ont pas besoin
+    const isConversational = /^(merci|salut|bonjour|hello|ok|oui|non|super|cool|parfait|d'accord|bonne journée|au revoir|bye|cimer|thx|thanks|mdrrr?|lol|haha|top|nickel|genial|génial|c'est bon|ok super|ok merci|merci beaucoup|oui merci|non merci|ah ok|ah d'accord)[\s!?.]*$/i.test(message.trim())
+
     // Boucle pour gérer les function calls
     let attempts = 0
     const maxAttempts = 8
 
     while (attempts < maxAttempts) {
-      // Appeler OpenAI (GPT-4o-mini : rapide, pas cher, excellent pour le function calling)
       // Premier appel : "required" force l'IA à appeler au moins une fonction (évite les hallucinations)
-      // Appels suivants : "auto" pour laisser l'IA répondre librement avec les résultats
+      // Sauf pour les messages conversationnels (merci, salut...) → "auto"
+      // Appels suivants : toujours "auto"
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: messages,
         tools: tools,
-        tool_choice: attempts === 0 ? "required" : "auto",
+        tool_choice: (attempts === 0 && !isConversational) ? "required" : "auto",
         temperature: 0.3,
         max_tokens: 2000
       })
