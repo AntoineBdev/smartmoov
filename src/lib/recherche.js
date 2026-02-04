@@ -263,6 +263,52 @@ export async function getItineraire(depart, arrivee) {
 
 const SNCF_API_KEY = process.env.API_KEY_SNCF
 
+
+/**
+ * Fonction 7 : Trouver la gare SNCF la plus proche d'une position GPS
+ *
+ * @param {number} lat - Latitude de l'utilisateur
+ * @param {number} lon - Longitude de l'utilisateur
+ * @returns {Object} - { gare: { id_sncf, nom_gare, commune, distance_km }, error }
+ */
+export async function getGareLaPlusProche(lat, lon) {
+  // Requête SQL avec calcul de distance (formule approximative mais suffisante)
+  const { data, error } = await supabase
+    .from('gares_sncf')
+    .select('id_sncf, nom_gare, commune, lat, lon')
+
+  if (error) {
+    console.error('Erreur getGareLaPlusProche:', error)
+    return { gare: null, error: 'Erreur base de données' }
+  }
+
+  if (!data || data.length === 0) {
+    return { gare: null, error: 'Aucune gare trouvée' }
+  }
+
+  // Calculer la distance pour chaque gare (formule Haversine simplifiée)
+  const garesAvecDistance = data.map(g => {
+    const dLat = (g.lat - lat) * 111  // ~111km par degré de latitude
+    const dLon = (g.lon - lon) * 111 * Math.cos(lat * Math.PI / 180)
+    const distance = Math.sqrt(dLat * dLat + dLon * dLon)
+    return { ...g, distance_km: Math.round(distance * 10) / 10 }
+  })
+
+  // Trier par distance et retourner la plus proche
+  garesAvecDistance.sort((a, b) => a.distance_km - b.distance_km)
+  const gareLaPlusProche = garesAvecDistance[0]
+
+  return {
+    gare: {
+      id_sncf: gareLaPlusProche.id_sncf,
+      nom_gare: gareLaPlusProche.nom_gare,
+      commune: gareLaPlusProche.commune,
+      distance_km: gareLaPlusProche.distance_km
+    },
+    error: null
+  }
+}
+
 /**
  * Fonction 7 : Rechercher une gare SNCF par son nom
  */
@@ -399,16 +445,17 @@ export async function getLignesGare(gareId) {
  *
  * @param {string} gareId - ID SNCF de la gare (ex: "stop_area:SNCF:87611004")
  * @param {number} count - Nombre de départs à retourner (défaut: 5)
+ * @param {string} datetime - Date/heure au format YYYYMMDDTHHMMSS (optionnel)
  */
-export async function getProchainsDepartsSNCF(gareId, count = 5) {
+export async function getProchainsDepartsSNCF(gareId, count = 5, datetime = null) {
   if (!SNCF_API_KEY) {
     return { departs: [], error: "Clé API SNCF non configurée" }
   }
 
-  const now = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)
+  const dt = datetime || new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)
 
   const url = `https://api.sncf.com/v1/coverage/sncf/stop_areas/${encodeURIComponent(gareId)}/departures?` +
-    `datetime=${now}&count=${count}`
+    `datetime=${dt}&count=${count}`
 
   try {
     const response = await fetch(url, {

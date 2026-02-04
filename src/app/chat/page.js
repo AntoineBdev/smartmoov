@@ -35,17 +35,14 @@ export default function ChatPage() {
 
   // Fonction pour envoyer un message (réutilisable)
   const sendMessage = async (userMessage, currentMessages, location = null) => {
-    // Détecter si l'utilisateur précise un point de départ
-    // Patterns : "de X à Y", "depuis X", "partir de X", "de X vers Y"
-    const hasExplicitDeparture =
-      /\bde\s+.+\s+(à|a|vers|jusqu'à|jusqua)\s+/i.test(userMessage) ||
-      /\bdepuis\s+/i.test(userMessage) ||
-      /\bpartir de\s+/i.test(userMessage) ||
-      /\ben partant de\s+/i.test(userMessage);
+    // Injecter le GPS SEULEMENT quand l'utilisateur mentionne une destination sans départ
+    // Patterns détectés : "aller à X", "je veux aller à X", "comment aller à X", "emmène-moi à X"
+    // Tout le reste (2 lieux, "de X à Y", "pibrac castanet", etc.) → PAS de GPS
+    const needsGPS =
+      /\b(aller à|aller a|aller au|aller aux|aller vers|je veux aller|pour aller|comment aller|emmène[- ]moi|amène[- ]moi|direction)\b/i.test(userMessage);
 
-    // On ajoute la position GPS SEULEMENT si l'utilisateur ne précise pas de départ
     let messageWithContext = userMessage;
-    if (location && !hasExplicitDeparture) {
+    if (location && needsGPS) {
       messageWithContext = `[Position de l'utilisateur: ${location.lat}, ${location.lng}]\n\n${userMessage}`;
     }
 
@@ -145,7 +142,7 @@ export default function ChatPage() {
             ...prev,
             {
               role: "assistant",
-              content: `📍 C'est noté ! J'ai ta position (${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}). Maintenant dis-moi où tu veux aller et je calculerai le trajet depuis là où tu es !`,
+              content: `📍 C'est noté ! J'ai ta position. Maintenant dis-moi où tu veux aller et je calculerai le trajet depuis là où tu es !`,
             },
           ]);
         }
