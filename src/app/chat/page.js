@@ -35,11 +35,15 @@ export default function ChatPage() {
 
   // Fonction pour envoyer un message (réutilisable)
   const sendMessage = async (userMessage, currentMessages, location = null) => {
-    // Injecter le GPS SEULEMENT quand l'utilisateur mentionne une destination sans départ
-    // Patterns détectés : "aller à X", "je veux aller à X", "comment aller à X", "emmène-moi à X"
-    // Tout le reste (2 lieux, "de X à Y", "pibrac castanet", etc.) → PAS de GPS
+    // Injecter le GPS quand l'utilisateur mentionne une destination sans départ
+    // ou quand il fait référence à sa position
     const needsGPS =
-      /\b(aller à|aller a|aller au|aller aux|aller vers|je veux aller|pour aller|comment aller|emmène[- ]moi|amène[- ]moi|direction)\b/i.test(userMessage);
+      // "aller à X", "comment aller à X", "je veux aller à X"
+      /\b(aller à|aller a|aller au|aller aux|aller vers|je veux aller|pour aller|comment aller|emmène[- ]moi|amène[- ]moi|direction)\b/i.test(userMessage) ||
+      // "je vais à X", "comment je vais à X", "j'y vais"
+      /\b(je vais|comment je vais|j'y vais|pour me rendre)\s+(à|a|au|aux|vers)\b/i.test(userMessage) ||
+      // Référence explicite à la position : "de là où je suis", "depuis ici", "ma position"
+      /\b(d'ici|depuis ici|où je suis|ma position|depuis ma position|de chez moi|depuis chez moi)\b/i.test(userMessage);
 
     let messageWithContext = userMessage;
     if (location && needsGPS) {

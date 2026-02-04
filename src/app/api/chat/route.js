@@ -475,7 +475,7 @@ export async function POST(request) {
 
     // Boucle pour gérer les function calls
     let attempts = 0
-    const maxAttempts = 5
+    const maxAttempts = 8
 
     while (attempts < maxAttempts) {
       // Appeler OpenAI (GPT-4o-mini : rapide, pas cher, excellent pour le function calling)
