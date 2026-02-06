@@ -56,11 +56,21 @@ npm run start    # Démarrer en production (après build)
 
 ### Boucle de function calling
 
-L'API `/api/chat/route.js` utilise une boucle (max 5 itérations) :
+L'API `/api/chat/route.js` utilise une boucle (max 8 itérations) :
 1. Envoie le message à OpenAI avec les tools disponibles
 2. Si OpenAI demande un tool_call → exécute la fonction correspondante
 3. Ajoute le résultat aux messages et renvoie à OpenAI
 4. Répète jusqu'à une réponse finale (sans tool_call)
+
+**Comportement spécial** : Le premier appel utilise `tool_choice: "required"` pour forcer un appel de fonction (évite les hallucinations), sauf pour les messages conversationnels (merci, salut, ok...) détectés via regex → `tool_choice: "auto"`.
+
+### System prompt
+
+Le system prompt dans `route.js` contient la logique métier critique :
+- Règles d'utilisation SNCF (longue distance uniquement) vs Tisséo (local)
+- Parsing des expressions de date ("demain matin" → datetime SNCF)
+- Format de réponse pour les itinéraires (emojis, structure)
+- Détection des destinations vagues ("Toulouse" → demande précision)
 
 ### Fichiers clés
 
