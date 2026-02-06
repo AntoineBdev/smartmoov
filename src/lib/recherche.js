@@ -212,33 +212,21 @@ export async function getItineraire(depart, arrivee) {
       }
     }
 
-    // On formate les résultats pour les rendre plus lisibles
-    const trajets = data.routes.map((route, index) => {
-      const leg = route.legs[0]  // Premier segment du trajet
+    // On formate les résultats (simplifié pour réduire les tokens)
+    const trajets = data.routes.map((route) => {
+      const leg = route.legs[0]
 
       return {
-        numero: index + 1,
-        duree: leg.duration.text,           // "45 min"
-        distance: leg.distance.text,        // "12 km"
-        depart: leg.start_address,          // Adresse de départ corrigée
-        arrivee: leg.end_address,           // Adresse d'arrivée corrigée
-        heureDepart: leg.departure_time?.text || null,   // "14:30"
-        heureArrivee: leg.arrival_time?.text || null,    // "15:15"
+        duree: leg.duration.text,
+        heureDepart: leg.departure_time?.text || null,
+        heureArrivee: leg.arrival_time?.text || null,
         etapes: leg.steps.map(step => {
-          // Si c'est de la marche à pied
           if (step.travel_mode === 'WALKING') {
-            return {
-              mode: 'WALKING',
-              instruction: step.html_instructions?.replace(/<[^>]*>/g, '') || 'Marcher', // Enlever les balises HTML
-              duree: step.duration?.text || '',
-              distance: step.distance?.text || ''
-            }
+            return { mode: 'WALKING', duree: step.duration?.text || '' }
           }
-          // Si c'est du transport en commun
           return {
             mode: step.transit_details?.line?.vehicle?.type || 'TRANSIT',
             ligne: step.transit_details?.line?.short_name || '',
-            nomLigne: step.transit_details?.line?.name || '',
             direction: step.transit_details?.headsign || '',
             departArret: step.transit_details?.departure_stop?.name || '',
             arriveeArret: step.transit_details?.arrival_stop?.name || '',
