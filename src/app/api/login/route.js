@@ -12,13 +12,13 @@ export async function POST(request) {
   }
 
   if (password === correctPassword) {
-    // Créer un cookie d'authentification (expire dans 7 jours)
+    // Créer un cookie d'authentification (expire dans 1 jour)
     const cookieStore = await cookies()
     cookieStore.set('auth', 'true', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7 // 7 jours
+      maxAge: 60 * 60 * 24  // 1 jour
     })
 
     return Response.json({ success: true })
