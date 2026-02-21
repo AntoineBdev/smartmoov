@@ -163,3 +163,40 @@ MAINTENANCE_MODE       # Optionnel : "true" → 503 sur tout le site
 ## Path alias
 
 `@/*` → `./src/*` (configuré dans jsconfig.json)
+
+---
+
+## 🎯 EN COURS : Présentation soutenance
+
+**Contexte** : Projet L2 "Atelier Numérique et Management" - Évaluation semaine du 11 mai 2026
+**Sujet** : Projet 2 — SmartMove (voir `Docs/projets (3).pdf`)
+
+### Page présentation
+
+- **URL** : `/presentation` (bouton dans le Header)
+- **Mot de passe** : `123`
+- **Fichier** : `src/app/presentation/page.js`
+
+### Structure actuelle (20 slides)
+
+| # | Partie | Slides | Statut |
+|---|--------|--------|--------|
+| 1 | Titre | 1 | ✅ |
+| 2 | Structure du site (choix technos) | 2-6 | ✅ |
+| 3 | Les 11 fonctions (qui appelle quoi) | 7-10 | ✅ |
+| 4 | Spécificités techniques | 11-15 | ✅ |
+| 5 | Difficultés rencontrées | 16-18 | ⚠️ Slide 18 à compléter |
+| 6 | Conclusion + Questions | 19-20 | ✅ |
+
+### TODO présentation
+
+- [ ] **Compléter slide 18** : ajouter les vraies galères rencontrées
+- [ ] Supprimer les anciens fichiers (`PRESENTATION.md`, `presentation.html`)
+- [ ] Tester la démo live sur Vercel
+
+### Points clés à retenir pour la soutenance
+
+1. **Pas de RAG** → on utilise du **function calling** (mieux pour données structurées SQL)
+2. **pg_trgm** pour la recherche fuzzy (pas besoin d'IA, juste PostgreSQL)
+3. **GPT-4o-mini** : 200x moins cher que GPT-4, suffisant pour orchestrer
+4. Le LLM est un **chef d'orchestre**, pas une source de vérité

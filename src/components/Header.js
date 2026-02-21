@@ -61,6 +61,16 @@ export default function Header() {
             >
               Chat
             </Link>
+            <Link
+              href="/presentation"
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                pathname === "/presentation"
+                  ? "bg-[#e5056e] text-white"
+                  : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+              }`}
+            >
+              📽️ Présentation
+            </Link>
           </nav>
 
           {/* Toggle Dark Mode - Style Apple */}
