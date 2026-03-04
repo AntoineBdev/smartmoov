@@ -177,7 +177,7 @@ MAINTENANCE_MODE       # Optionnel : "true" → 503 sur tout le site
 - **Mot de passe** : `123`
 - **Fichier** : `src/app/presentation/page.js`
 
-### Structure actuelle (20 slides)
+### Structure actuelle (21 slides)
 
 | # | Partie | Slides | Statut |
 |---|--------|--------|--------|
@@ -185,13 +185,13 @@ MAINTENANCE_MODE       # Optionnel : "true" → 503 sur tout le site
 | 2 | Structure du site (choix technos) | 2-6 | ✅ |
 | 3 | Les 11 fonctions (qui appelle quoi) | 7-10 | ✅ |
 | 4 | Spécificités techniques | 11-15 | ✅ |
-| 5 | Difficultés rencontrées | 16-18 | ⚠️ Slide 18 à compléter |
-| 6 | Conclusion + Questions | 19-20 | ✅ |
+| 5 | Difficultés rencontrées | 16-17 | ✅ |
+| 6 | Optimisations | 18-19 | ✅ |
+| 7 | Conclusion + Questions | 20-21 | ✅ |
 
 ### TODO présentation
 
-- [ ] **Compléter slide 18** : ajouter les vraies galères rencontrées
-- [ ] Supprimer les anciens fichiers (`PRESENTATION.md`, `presentation.html`)
+- [ ] **Rédiger le texte d'intro** (ce qu'on dit à l'oral pour chaque slide)
 - [ ] Tester la démo live sur Vercel
 
 ### Points clés à retenir pour la soutenance
