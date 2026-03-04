@@ -207,18 +207,24 @@ export default function Presentation() {
       content: (
         <>
           <h2>Itinéraire Tisséo → Google Directions</h2>
-          <pre><code>{`getItineraire(depart, arrivee)
-
-// Appelle Google Directions API
-fetch(\`https://maps.googleapis.com/maps/api/directions/json?
-  origin=\${depart}
-  &destination=\${arrivee}
-  &mode=transit
-  &region=fr
-  &key=\${GOOGLE_MAPS_API_KEY}\`
-)`}</code></pre>
-          <div className="highlight-box">
-            <strong>mode=transit</strong> : Google utilise les données GTFS de Tisséo pour calculer le trajet.
+          <div className="grid">
+            <div className="card">
+              <h3>📥 Entrée</h3>
+              <p><code>getItineraire(départ, arrivée)</code></p>
+              <p>Accepte une adresse ou des coordonnées GPS</p>
+            </div>
+            <div className="card">
+              <h3>📤 Sortie</h3>
+              <p>Étapes du trajet : lignes, arrêts, durées, correspondances</p>
+            </div>
+            <div className="card">
+              <h3>🚇 Mode transit</h3>
+              <p>Google calcule uniquement en transports en commun (pas voiture)</p>
+            </div>
+            <div className="card">
+              <h3>📊 Données GTFS</h3>
+              <p>Google intègre les horaires Tisséo automatiquement</p>
+            </div>
           </div>
         </>
       )
@@ -288,18 +294,29 @@ fetch(\`https://maps.googleapis.com/maps/api/directions/json?
       content: (
         <>
           <h2>Recherche fuzzy (pg_trgm)</h2>
-          <p style={{ marginBottom: '20px' }}>L&apos;utilisateur écrit &quot;capitol&quot; → on trouve &quot;Capitole&quot;</p>
-          <pre><code>{`-- Extension PostgreSQL pg_trgm
--- Découpe en trigrammes (groupes de 3 lettres)
-
-"capitole" → {" ca", "cap", "api", "pit", "ito", "tol", "ole"}
-"capitol"  → {" ca", "cap", "api", "pit", "ito", "tol"}
-
--- Score de similarité = trigrammes communs / total
-SELECT *, similarity(nom_arret, 'capitol') AS score
-FROM arrets_physiques
-WHERE nom_arret % 'capitol'  -- opérateur trigramme
-ORDER BY score DESC;`}</code></pre>
+          <p className="subtitle">L&apos;utilisateur écrit &quot;capitol&quot; → on trouve &quot;Capitole&quot;</p>
+          <div className="grid">
+            <div className="card">
+              <h3>✂️ Trigrammes</h3>
+              <p>Découpe les mots en groupes de 3 lettres</p>
+              <p className="muted">&quot;capitole&quot; → cap, api, pit, ito, tol, ole</p>
+            </div>
+            <div className="card">
+              <h3>📊 Score de similarité</h3>
+              <p>Compare les trigrammes en commun</p>
+              <p className="muted">Plus y&apos;en a, plus ça match</p>
+            </div>
+            <div className="card">
+              <h3>🐘 PostgreSQL natif</h3>
+              <p>Extension pg_trgm intégrée à Supabase</p>
+              <p className="muted">Pas besoin d&apos;IA pour ça</p>
+            </div>
+            <div className="card">
+              <h3>⚡ Rapide</h3>
+              <p>Recherche indexée, résultats instantanés</p>
+              <p className="muted">Même avec des milliers d&apos;arrêts</p>
+            </div>
+          </div>
         </>
       )
     },
@@ -309,21 +326,29 @@ ORDER BY score DESC;`}</code></pre>
       content: (
         <>
           <h2>Géolocalisation</h2>
-          <p style={{ marginBottom: '20px' }}>&quot;Comment aller de chez moi à Matabiau ?&quot;</p>
-          <pre><code>{`// Côté client (chat/page.js)
-useEffect(() => {
-  navigator.geolocation.getCurrentPosition((pos) => {
-    setUserLocation({
-      lat: pos.coords.latitude,   // 43.6047
-      lon: pos.coords.longitude   // 1.4442
-    });
-  });
-}, []);
-
-// Envoyé avec chaque message
-{ message: "...", location: { lat: 43.6047, lon: 1.4442 } }`}</code></pre>
-          <div className="highlight-box">
-            Le LLM reçoit les coordonnées → peut appeler <code>getItineraire(coords, dest)</code>
+          <p className="subtitle">&quot;Comment aller de chez moi à Matabiau ?&quot;</p>
+          <div className="flow">
+            <div className="flow-step">
+              <span className="num">1</span>
+              <div>
+                <strong>Demande de permission</strong>
+                <p className="muted">Le navigateur demande l&apos;accès à la position GPS</p>
+              </div>
+            </div>
+            <div className="flow-step">
+              <span className="num">2</span>
+              <div>
+                <strong>Coordonnées récupérées</strong>
+                <p className="muted">Latitude + longitude envoyées avec chaque message</p>
+              </div>
+            </div>
+            <div className="flow-step">
+              <span className="num">3</span>
+              <div>
+                <strong>Le LLM comprend &quot;chez moi&quot;</strong>
+                <p className="muted">Il utilise les coordonnées comme point de départ</p>
+              </div>
+            </div>
           </div>
         </>
       )
@@ -334,20 +359,20 @@ useEffect(() => {
       content: (
         <>
           <h2>Forcer l&apos;utilisation des données</h2>
-          <pre><code>{`// Premier appel : OBLIGER le LLM à appeler une fonction
-const response = await openai.chat.completions.create({
-  model: "gpt-4o-mini",
-  messages: [...],
-  tools: [...],
-  tool_choice: "required"  // ← Force un function call
-});
-
-// Sauf pour les messages conversationnels
-if (/^(merci|salut|ok|bonjour|super)/i.test(message)) {
-  tool_choice = "auto";  // ← Laisser le LLM répondre directement
-}`}</code></pre>
+          <div className="comparison">
+            <div className="card bad">
+              <h3>❌ Sans contrainte</h3>
+              <p>&quot;Le métro A passe toutes les 5 min&quot;</p>
+              <p className="muted">→ Le LLM invente (hallucination)</p>
+            </div>
+            <div className="card good">
+              <h3>✅ Avec tool_choice: required</h3>
+              <p>Obligé d&apos;appeler une fonction</p>
+              <p className="muted">→ Données réelles de la BDD</p>
+            </div>
+          </div>
           <div className="highlight-box">
-            <strong>Pourquoi ?</strong> Sinon le LLM répond &quot;Le métro A passe toutes les 5 minutes&quot; → faux.
+            <strong>Exception :</strong> &quot;Merci&quot;, &quot;Bonjour&quot;, &quot;Ok&quot; → pas besoin de données, le LLM répond directement.
           </div>
         </>
       )
@@ -395,37 +420,57 @@ if (/^(merci|salut|ok|bonjour|super)/i.test(message)) {
               <p className="problem">Le LLM appelle en boucle</p>
               <p className="solution">→ Limite 8 itérations max</p>
             </div>
+            <div className="card">
+              <h3>📍 Géoloc vs départ explicite</h3>
+              <p className="problem">&quot;De A à B&quot; → prenait ma position comme départ</p>
+              <p className="solution">→ Priorité au départ explicite dans le prompt</p>
+            </div>
           </div>
         </>
       )
     },
 
-    // Slide 18: Plus de difficultés (à compléter par l'user)
+    // ============================================
+    // PARTIE 5 : OPTIMISATIONS
+    // ============================================
+
+    // Slide 18: Titre optimisations
+    {
+      type: 'title',
+      content: (
+        <>
+          <div className="logo">⚡</div>
+          <h1>Optimisations</h1>
+          <p className="subtitle">Réduire les coûts et la latence</p>
+        </>
+      )
+    },
+
+    // Slide 19: Optimisations détaillées
     {
       content: (
         <>
-          <h2>Autres galères</h2>
-          <div className="flow">
-            <div className="flow-step">
-              <span className="num">1</span>
-              <div>
-                <strong>À compléter...</strong>
-                <p className="muted">Dis-moi où t&apos;as galéré</p>
-              </div>
+          <h2>Ce qu&apos;on a optimisé</h2>
+          <div className="grid">
+            <div className="card">
+              <h3>🇬🇧 Prompt en anglais</h3>
+              <p>L&apos;anglais utilise moins de tokens que le français</p>
+              <p className="muted">~20% d&apos;économie sur chaque requête</p>
             </div>
-            <div className="flow-step">
-              <span className="num">2</span>
-              <div>
-                <strong>À compléter...</strong>
-                <p className="muted">Dis-moi où t&apos;as galéré</p>
-              </div>
+            <div className="card">
+              <h3>📦 JSON allégé</h3>
+              <p>Google renvoie 50+ champs, on en garde 7</p>
+              <p className="muted">Durée, ligne, direction, arrêts... c&apos;est tout</p>
             </div>
-            <div className="flow-step">
-              <span className="num">3</span>
-              <div>
-                <strong>À compléter...</strong>
-                <p className="muted">Dis-moi où t&apos;as galéré</p>
-              </div>
+            <div className="card">
+              <h3>⚡ Appels parallèles</h3>
+              <p>Promise.all() au lieu de séquentiel</p>
+              <p className="muted">3 fonctions en même temps = 3x plus rapide</p>
+            </div>
+            <div className="card">
+              <h3>🎯 Temperature 0.1</h3>
+              <p>Réponses plus prévisibles et cohérentes</p>
+              <p className="muted">Moins de créativité = moins d&apos;erreurs</p>
             </div>
           </div>
         </>
@@ -436,7 +481,7 @@ if (/^(merci|salut|ok|bonjour|super)/i.test(message)) {
     // CONCLUSION
     // ============================================
 
-    // Slide 19: Conclusion
+    // Slide 20: Ce qu'on retient
     {
       content: (
         <>
@@ -838,7 +883,7 @@ const styles = `
 
   ul.small li {
     font-size: 1rem;
-    padding: 6px 0;
+    padding: 6px 0 6px 25px;
   }
 
   li {
