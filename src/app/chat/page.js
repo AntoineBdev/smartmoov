@@ -35,19 +35,11 @@ export default function ChatPage() {
 
   // Fonction pour envoyer un message (réutilisable)
   const sendMessage = async (userMessage, currentMessages, location = null) => {
-    // Injecter le GPS quand l'utilisateur mentionne une destination sans départ
-    // ou quand il fait référence à sa position
-    const needsGPS =
-      // "aller à X", "comment aller à X", "je veux aller à X"
-      /\b(aller à|aller a|aller au|aller aux|aller vers|je veux aller|pour aller|comment aller|emmène[- ]moi|amène[- ]moi|direction)\b/i.test(userMessage) ||
-      // "je vais à X", "comment je vais à X", "j'y vais"
-      /\b(je vais|comment je vais|j'y vais|pour me rendre)\s+(à|a|au|aux|vers)\b/i.test(userMessage) ||
-      // Référence explicite à la position : "de là où je suis", "depuis ici", "ma position"
-      /\b(d'ici|depuis ici|où je suis|ma position|depuis ma position|de chez moi|depuis chez moi)\b/i.test(userMessage);
-
+    // Toujours injecter la position si on l'a - le LLM décidera s'il en a besoin
+    // C'est plus robuste que de deviner avec des regex
     let messageWithContext = userMessage;
-    if (location && needsGPS) {
-      messageWithContext = `[Position de l'utilisateur: ${location.lat}, ${location.lng}]\n\n${userMessage}`;
+    if (location) {
+      messageWithContext = `[Position GPS disponible: ${location.lat}, ${location.lng}]\n\n${userMessage}`;
     }
 
     setIsLoading(true);
