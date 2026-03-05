@@ -35,11 +35,12 @@ export default function ChatPage() {
 
   // Fonction pour envoyer un message (réutilisable)
   const sendMessage = async (userMessage, currentMessages, location = null) => {
-    // Toujours injecter la position si on l'a - le LLM décidera s'il en a besoin
-    // C'est plus robuste que de deviner avec des regex
+    // Toujours indiquer l'état de la position GPS au LLM
     let messageWithContext = userMessage;
     if (location) {
       messageWithContext = `[Position GPS disponible: ${location.lat}, ${location.lng}]\n\n${userMessage}`;
+    } else {
+      messageWithContext = `[Position GPS non disponible]\n\n${userMessage}`;
     }
 
     setIsLoading(true);
