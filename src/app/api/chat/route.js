@@ -379,7 +379,8 @@ const tools = [
     type: "function",
     function: {
       name: "getItineraireSNCF",
-      description: "Calcule un itinéraire en train SNCF entre deux gares. Utilise les ID SNCF obtenus via rechercherGare().",
+      description: "Calcule un itinéraire en train SNCF entre deux gares. Utilise les ID SNCF obtenus via rechercherGare(). IMPORTANT: Convertis les expressions naturelles en datetime AVANT d'appeler (ex: 'demain matin' → lendemain à 08:00, 'ce soir' → aujourd'hui 18:00).",
+      strict: true,
       parameters: {
         type: "object",
         properties: {
@@ -393,10 +394,10 @@ const tools = [
           },
           datetime: {
             type: "string",
-            description: "Date/heure au format YYYYMMDDTHHMMSS (ex: 20260203T080000 pour le 3 février 2026 à 8h). Optionnel, par défaut maintenant."
+            description: "Date/heure OBLIGATOIRE au format YYYYMMDDTHHMMSS. Convertis les expressions: 'demain matin'→lendemain 08:00, 'ce soir'→18:00, 'maintenant'→heure actuelle. Ex: 20260306T080000"
           }
         },
-        required: ["departId", "arriveeId"],
+        required: ["departId", "arriveeId", "datetime"],
         additionalProperties: false
       }
     }
@@ -406,6 +407,7 @@ const tools = [
     function: {
       name: "getProchainsDepartsSNCF",
       description: "Affiche les prochains départs de trains depuis une gare SNCF.",
+      strict: true,
       parameters: {
         type: "object",
         properties: {
@@ -415,10 +417,10 @@ const tools = [
           },
           datetime: {
             type: "string",
-            description: "Date/heure au format YYYYMMDDTHHMMSS (ex: 20260203T080000). Optionnel, par défaut maintenant."
+            description: "Date/heure au format YYYYMMDDTHHMMSS (ex: 20260305T140000). Si non précisé par l'utilisateur, utilise l'heure actuelle."
           }
         },
-        required: ["gareId"],
+        required: ["gareId", "datetime"],
         additionalProperties: false
       }
     }
