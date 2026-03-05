@@ -339,6 +339,7 @@ export async function rechercherGare(nom) {
  */
 export async function getItineraireSNCF(departId, arriveeId, datetime = null) {
   if (!SNCF_API_KEY) {
+    console.error('❌ API_KEY_SNCF non définie dans les variables d\'environnement')
     return { trajets: [], error: "Clé API SNCF non configurée" }
   }
 
@@ -352,12 +353,14 @@ export async function getItineraireSNCF(departId, arriveeId, datetime = null) {
     `&count=3`
 
   try {
+    console.log(`🚆 SNCF API: ${departId} → ${arriveeId} @ ${dt}`)
     const response = await fetch(url, {
       headers: { 'Authorization': `Basic ${Buffer.from(SNCF_API_KEY + ':').toString('base64')}` }
     })
     const data = await response.json()
 
     if (data.error) {
+      console.error('❌ SNCF API error:', data.error)
       return { trajets: [], error: data.error.message || 'Erreur API SNCF' }
     }
 
